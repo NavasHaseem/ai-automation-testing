@@ -40,7 +40,7 @@ from utils.MangoDB import upload_file, list_files, download_file, delete_file
 from utils.parse_text import extract_text, ParseError
 from utils.embedding import embed_texts, get_model_info
 from utils.pinecone_store import ensure_index, upsert_chunks, query
-from Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse
+from Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse, PostgresTableListResponse, PostgresQueryRequest, PostgresQueryResponse, PostgresIndexRequest, PostgresIndexResponse
 
 app = FastAPI(title="AI Testing Backend", version="1.0.0")
 
@@ -207,13 +207,45 @@ async def query_endpoint(req: QueryRequest, _auth: bool = Depends(get_token)):
     # Embed the query
     qvec = embed_texts([req.text])[0]
     
-    # Query Pinecone
-    result = pinecone_query(
-        vector=qvec,
-        top_k=req.top_k,
-        namespace=req.namespace,
-        filter=req.filter or {}
-    )
+    # Query Pinecone - this now includes BOTH documents and PostgreSQL data
+    # Documents are in namespace "mongodb-files"
+    # PostgreSQL data is in namespace "postgresql-data"
+    
+    all_matches = []
+    
+    # Search in document namespace
+    if req.namespace == "mongodb-files" or req.namespace == "all":
+        doc_result = pinecone_query(
+            vector=qvec,
+            top_k=req.top_k,
+            namespace="mongodb-files",
+            filter=req.filter or {}
+        )
+        all_matches.extend(doc_result.get("matches", []))
+    
+    # Search in PostgreSQL namespace (RAG layer)
+    if req.namespace == "postgresql-data" or req.namespace == "all":
+        pg_result = pinecone_query(
+            vector=qvec,
+            top_k=req.top_k,
+            namespace="postgresql-data",
+            filter={"source": {"$eq": "postgresql"}}
+        )
+        all_matches.extend(pg_result.get("matches", []))
+    
+    # If namespace is not specified as "all", use the provided namespace
+    if req.namespace not in ["mongodb-files", "postgresql-data", "all"]:
+        result = pinecone_query(
+            vector=qvec,
+            top_k=req.top_k,
+            namespace=req.namespace,
+            filter=req.filter or {}
+        )
+        all_matches = result.get("matches", [])
+    
+    # Sort by score and limit to top_k
+    all_matches.sort(key=lambda x: x.get("score", 0), reverse=True)
+    all_matches = all_matches[:req.top_k * 2]  # Get more for better context
     
     # Convert matches to QueryMatch models
     matches = [
@@ -222,49 +254,74 @@ async def query_endpoint(req: QueryRequest, _auth: bool = Depends(get_token)):
             score=match["score"],
             metadata=match.get("metadata", {})
         )
-        for match in result.get("matches", [])
+        for match in all_matches
     ]
     
-    # Generate contextual answer using LLM
+    # Generate contextual answer using LLM with context from Pinecone (unified RAG)
     answer = "No relevant information found."
-    if matches:
-        # Gather context from top matches
-        context_parts = []
-        for match in matches[:5]:  # Use top 5 matches
-            # Use full text if available, fall back to preview
-            full_text = match.metadata.get("text", "") or match.metadata.get("text_preview", "")
-            if full_text:
-                context_parts.append(full_text)
+    
+    # Combine contexts from all sources retrieved from Pinecone
+    all_contexts = []
+    postgres_data = None
+    
+    # Separate document and database contexts
+    doc_contexts = []
+    db_contexts = []
+    
+    for i, match in enumerate(matches[:10], 1):
+        full_text = match.metadata.get("text", "") or match.metadata.get("text_preview", "")
+        source = match.metadata.get("source", "unknown")
         
-        if context_parts:
-            context = "\n\n".join(context_parts)
+        if source == "postgresql":
+            db_contexts.append(f"Database Record {len(db_contexts)+1}: {full_text}")
+        else:
+            doc_contexts.append(f"Document {len(doc_contexts)+1}: {full_text}")
+    
+    # Add document context
+    if doc_contexts:
+        all_contexts.append("=== Document Context (from uploaded files) ===")
+        all_contexts.extend(doc_contexts)
+    
+    # Add PostgreSQL context (from Pinecone RAG layer)
+    if db_contexts:
+        all_contexts.append("\n=== Database Context (from PostgreSQL via RAG) ===")
+        all_contexts.extend(db_contexts)
+        postgres_data = {
+            "source": "pinecone_rag",
+            "record_count": len(db_contexts),
+            "message": "Retrieved from Pinecone vector database (PostgreSQL data indexed)"
+        }
+    
+    if all_contexts:
+        combined_context = "\n\n".join(all_contexts)
+        
+        # Call Azure OpenAI to generate answer
+        try:
+            client = AzureOpenAI(
+                api_key=os.getenv("API_KEY"),
+                api_version=os.getenv("API_VERSION"),
+                azure_endpoint=os.getenv("API_BASE")
+            )
             
-            # Call Azure OpenAI to generate answer
-            try:
-                client = AzureOpenAI(
-                    api_key=os.getenv("API_KEY"),
-                    api_version=os.getenv("API_VERSION"),
-                    azure_endpoint=os.getenv("API_BASE")
-                )
-                
-                response = client.chat.completions.create(
-                    model=os.getenv("ENGINE", "gpt-4-32k"),
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided context. If the context doesn't contain enough information, say so."},
-                        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {req.text}\n\nProvide a clear, concise answer based on the context above."}
-                    ],
-                    temperature=0.3,
-                    max_tokens=500
-                )
-                answer = response.choices[0].message.content
-            except Exception as e:
-                answer = f"Error generating answer: {str(e)}"
+            response = client.chat.completions.create(
+                model=os.getenv("ENGINE", "gpt-4-32k"),
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided context from multiple sources (documents and database). All data has been retrieved through semantic search. Synthesize information from all sources to provide a comprehensive answer."},
+                    {"role": "user", "content": f"Context from semantic search:\n{combined_context}\n\nQuestion: {req.text}\n\nProvide a clear, comprehensive answer based on the context above."}
+                ],
+                temperature=0.3,
+                max_tokens=800
+            )
+            answer = response.choices[0].message.content
+        except Exception as e:
+            answer = f"Error generating answer: {str(e)}"
     
     return QueryResponse(
         status="success",
         matches=matches,
         total_results=len(matches),
-        answer=answer
+        answer=answer,
+        postgres_data=postgres_data
     )
 
 
@@ -314,3 +371,106 @@ async def get_jira_stories(max_results: int = 100, _auth: bool = Depends(get_tok
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Jira API error: {str(e)}")
+
+
+# ---- PostgreSQL Integration ----
+@app.get("/postgres/tables", response_model=PostgresTableListResponse)
+async def get_postgres_tables(_auth: bool = Depends(get_token)):
+    """
+    Get list of all tables in PostgreSQL database
+    """
+    from utils.postgres import get_tables
+    
+    try:
+        tables = get_tables()
+        return PostgresTableListResponse(
+            status="success",
+            tables=tables
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PostgreSQL error: {str(e)}")
+
+@app.post("/postgres/query", response_model=PostgresQueryResponse)
+async def query_postgres(req: PostgresQueryRequest, _auth: bool = Depends(get_token)):
+    """
+    Query PostgreSQL database - either by table name or custom SQL
+    """
+    from utils.postgres import get_table_data, execute_custom_query
+    
+    try:
+        if req.custom_query:
+            # Execute custom SQL query
+            data = execute_custom_query(req.custom_query)
+        elif req.table_name:
+            # Get data from specific table
+            data = get_table_data(req.table_name, req.limit)
+        else:
+            raise HTTPException(status_code=400, detail="Either table_name or custom_query must be provided")
+        
+        return PostgresQueryResponse(
+            status="success",
+            data=data,
+            row_count=len(data)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PostgreSQL error: {str(e)}")
+
+
+# ---- PostgreSQL RAG Indexing ----
+@app.post("/postgres/index", response_model=PostgresIndexResponse)
+async def index_postgres_to_pinecone(req: PostgresIndexRequest, _auth: bool = Depends(get_token)):
+    """
+    Index PostgreSQL tables into Pinecone for RAG.
+    Extracts data, chunks it, embeds it, and stores in Pinecone vector DB.
+    """
+    from utils.postgres_indexer import index_table_to_pinecone, index_all_tables_to_pinecone
+    
+    try:
+        if req.table_name:
+            # Index a specific table
+            result = index_table_to_pinecone(
+                table_name=req.table_name,
+                namespace=req.namespace,
+                chunk_size=req.chunk_size,
+                limit=req.limit_per_table
+            )
+            
+            # Format as overall response
+            if result['status'] == 'success':
+                return PostgresIndexResponse(
+                    status="success",
+                    tables_processed=1,
+                    total_rows=result['rows_processed'],
+                    total_chunks=result['chunks_created'],
+                    total_vectors=result['vectors_upserted'],
+                    namespace=req.namespace,
+                    table_results=[result]
+                )
+            else:
+                raise HTTPException(status_code=500, detail=result.get('error', 'Unknown error'))
+        else:
+            # Index all tables
+            result = index_all_tables_to_pinecone(
+                namespace=req.namespace,
+                chunk_size=req.chunk_size,
+                limit_per_table=req.limit_per_table,
+                exclude_tables=req.exclude_tables
+            )
+            
+            if result['status'] == 'success':
+                return PostgresIndexResponse(
+                    status="success",
+                    tables_processed=result['tables_processed'],
+                    total_rows=result['total_rows'],
+                    total_chunks=result['total_chunks'],
+                    total_vectors=result['total_vectors'],
+                    namespace=result['namespace'],
+                    table_results=result.get('table_results')
+                )
+            else:
+                raise HTTPException(status_code=500, detail=result.get('error', 'Unknown error'))
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indexing error: {str(e)}")
