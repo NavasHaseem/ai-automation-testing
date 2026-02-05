@@ -1,0 +1,30 @@
+langgraph
+langchain-core
+pydantic
+
+# --- FastAPI stack ---
+fastapi==0.110.0
+# uvicorn[standard]==0.29.0
+
+# CORS comes via Starlette which FastAPI pins; no need to add explicitly.
+
+# --- Environment variables ---
+python-dotenv>=1.0.1
+
+# --- Data processing ---
+pandas==2.2.2
+numpy==1.26.4
+
+# --- Fuzzy matching ---
+rapidfuzz==3.9.7
+
+# --- (A) MCP client (PyPI) ---
+openai-agents==0.3.3
+pinecone
+streamlit==1.53.0
+httpx
+langchain-community
+langchain-openai==0.2.4
+openai
+fastmcp==0.4.1
+mcp==1.25.0

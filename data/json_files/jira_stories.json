@@ -1,0 +1,101 @@
+[
+  {
+    "Key": "AATA-10",
+    "Summary": "Define locator strategy for airline UI automation",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Define stable locator rules for airline UI elements to reduce flaky tests.\nAcceptance Criteria\nPreferred locator hierarchy defined\nAt least 5 elements updated\nDocument shared with team\nSample Data\nPage\nElement\nLocator\nSearch\nFrom City\naria-label\nPayment\nPay Button\ndata-testid",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "qa-automation,",
+      "ui-testing"
+    ],
+    "Created": "2025-12-17T09:45:49.286+0530",
+    "Updated": "2025-12-17T09:52:20.018+0530"
+  },
+  {
+    "Key": "AATA-9",
+    "Summary": "Implement API health check tests for airline core services",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Add basic API health checks to validate availability of airline backend services.\nAcceptance Criteria\nHealth checks implemented for at least 3 services\nResponse code validation added\nExecution integrated with CI pipeline\nSample Data\nService\nEndpoint\nExpected\nBooking\n/health\n200\nPayment\n/health\n200\nCheck-in\n/health\n200",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "api-testing",
+      "qa-automation,"
+    ],
+    "Created": "2025-12-17T09:44:44.636+0530",
+    "Updated": "2025-12-17T09:51:56.579+0530"
+  },
+  {
+    "Key": "AATA-8",
+    "Summary": "Define test data sets for airline booking scenarios",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Create reusable test data for common airline booking scenarios.\nAcceptance Criteria\nAt least 3 booking scenarios defined\nData stored in JSON or CSV\nCovers positive and negative cases\nSample Data\n```\n{\n  \"tripType\": \"RoundTrip\",\n  \"passengerType\": \"Adult\",\n  \"paymentMethod\": \"CreditCard\",\n  \"fareClass\": \"Economy\"\n}\n```",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "qa-data"
+    ],
+    "Created": "2025-12-17T09:43:31.427+0530",
+    "Updated": "2025-12-17T09:51:39.845+0530"
+  },
+  {
+    "Key": "AATA-7",
+    "Summary": "Document airline regulatory validations required for testing",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Identify regulatory validations applicable to airline digital systems that must be tested.\nAcceptance Criteria\nMinimum 5 regulatory checks listed\nEach check mapped to affected system\nValidation method identified (UI/API/Log)\nSample Data\nRegulation\nSystem\nValidation\nPassenger Data Privacy\nPSS\nAPI\nRefund Rules\nBooking\nUI\nAudit Logging\nCore Services\nLogs",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "qa-compliance"
+    ],
+    "Created": "2025-12-17T09:42:42.972+0530",
+    "Updated": "2025-12-17T09:51:19.121+0530"
+  },
+  {
+    "Key": "AATA-6",
+    "Summary": "Map airline journeys to UI and API automation coverage",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Map identified airline journeys to appropriate automation layers (UI vs API).\nAcceptance Criteria\nEach journey mapped to at least one automation layer\nJustification documented\nGaps identified\nSample Data\nJourney\nUI\nAPI\nFlight Booking\n✔\n✔\nPayment\n✔\n✔\nCheck-in\n✔\n❌\nRefund\n❌\n✔",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "qa-automation",
+      "qa-risk"
+    ],
+    "Created": "2025-12-17T09:39:13.618+0530",
+    "Updated": "2025-12-17T09:50:26.873+0530"
+  },
+  {
+    "Key": "AATA-5",
+    "Summary": "Identify top 5 critical airline user journeys for automation",
+    "Status": "To Do",
+    "Assignee": null,
+    "Priority": "Medium",
+    "Project": "AATA",
+    "description": "Analyze airline business flows and identify the most critical passenger and operational journeys that require automated coverage.\nAcceptance Criteria:\nList at least 5 airline user journeys\nEach journey mapped to business risk (High/Medium/Low)\nReviewed with Product or Domain SME\nSample Data\nJourney\nRisk\nFlight Search → Booking\nHigh\nWeb Check-in\nHigh\nSeat Selection\nMedium\nCancellation & Refund\nHigh\nFlight Status Tracking\nMedium",
+    "IssueType": null,
+    "Labels": [
+      "airline-domain,",
+      "qa-risk"
+    ],
+    "Created": "2025-12-17T09:37:00.120+0530",
+    "Updated": "2025-12-17T09:49:55.759+0530"
+  }
+]
