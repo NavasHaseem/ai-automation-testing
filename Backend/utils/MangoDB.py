@@ -5,9 +5,9 @@ from typing import Optional, List, Dict, Any, Tuple
 from pymongo import MongoClient
 from gridfs import GridFS
 from bson import ObjectId
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_DB = os.getenv("MONGODB_DB", "filesdb")

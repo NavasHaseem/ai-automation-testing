@@ -753,5 +753,31 @@ For issues or questions, contact: navas.hasheem@apexon.com
 
 ---
 
-**Last Updated**: December 18, 2025
-**Version**: 1.1.0 - PostgreSQL RAG Implementation Complete
+## 🔧 Recent Updates (February 4, 2026)
+
+### Environment Setup Improvements
+- ✅ **Central `.env` File**: Added `.env` in project root for reliable environment loading
+- ✅ **Module Import Fixes**: Fixed all relative imports in `langgraph_agent.py` (changed from `from utils.` to `from Backend.utils.`)
+- ✅ **DotEnv Loading**: Updated `MangoDB.py` to use `find_dotenv()` for proper environment file discovery
+
+### Pinecone Management
+- ✅ **Namespace Deletion**: Added `delete_namespace()` function to `pinecone_store.py`
+- ✅ **Cleanup Scripts**: Created `delete_namespace.py` utility script for managing vector namespaces
+- ✅ **MongoDB Chunks**: Successfully delete and manage "mongodb-files" namespace
+
+### Running Services
+- ✅ **Backend**: http://localhost:8000 (FastAPI + Uvicorn)
+- ✅ **Frontend**: http://localhost:8501 (Streamlit)
+- ✅ **MongoDB**: mongodb://localhost:27017/ (GridFS for file storage)
+- ✅ **Pinecone**: Cloud-based vector database with namespaces
+
+### Known Working Features
+- ✅ Document upload to MongoDB
+- ✅ Document embedding and Pinecone indexing
+- ✅ Vector search queries
+- ✅ Namespace management and cleanup
+
+---
+
+**Last Updated**: February 4, 2026
+**Version**: 1.2.0 - Environment Setup & Import Fixes Complete

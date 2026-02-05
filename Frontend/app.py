@@ -1,8 +1,6 @@
 
 # frontend/app.py
 import os
-import urllib
-import re
 import streamlit as st
 import requests
 from dotenv import load_dotenv, find_dotenv

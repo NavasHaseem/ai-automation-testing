@@ -1,20 +1,15 @@
 
 # backend/main.py
 import os
-from typing import Annotated
 
-from fastapi import Request, Header
-from bson import ObjectId
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Body
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.models import Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response as StarletteResponse
 from gridfs import NoFile
 
 from dotenv import load_dotenv, find_dotenv
 from pymongo.errors import ServerSelectionTimeoutError
 from bson import ObjectId, errors as bson_errors
-from fastapi.responses import Response as StarletteRespons
 
 load_dotenv(find_dotenv())
 
@@ -36,11 +31,11 @@ def get_token(authorization: str = Header(None)):
     return True
 
 # ---- Import service helpers ----
-from utils.MangoDB import upload_file, list_files, download_file, delete_file
-from utils.parse_text import extract_text, ParseError
-from utils.embedding import embed_texts, get_model_info
-from utils.pinecone_store import ensure_index, upsert_chunks, query
-from Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse, PostgresTableListResponse, PostgresQueryRequest, PostgresQueryResponse, PostgresIndexRequest, PostgresIndexResponse
+from Backend.utils.MangoDB import upload_file, list_files, download_file, delete_file
+from Backend.utils.parse_text import extract_text, ParseError
+from Backend.utils.embedding import embed_texts, get_model_info
+from Backend.utils.pinecone_store import ensure_index, upsert_chunks, query
+from Backend.Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse, PostgresTableListResponse, PostgresQueryRequest, PostgresQueryResponse, PostgresIndexRequest, PostgresIndexResponse
 
 app = FastAPI(title="AI Testing Backend", version="1.0.0")
 
@@ -126,13 +121,13 @@ def get_file(file_id: str,_auth: bool = Depends(get_token_dependency())):
     }
 
     # ✅ Return the correct HTTP response type
-    return StarletteRespons(content=data, media_type=content_type, headers=headers)
+    return StarletteResponse(content=data, media_type=content_type, headers=headers)
 
 
 # ---- Embed + Upsert to Pinecone using LangGraph Agent ----
 @app.post("/pinecone/embed-upsert", response_model=UpsertResponse)
 async def embed_upsert_endpoint(req:EmbedUpsertRequest, _auth: bool = Depends(get_token)):
-    from utils.langgraph_agent import process_document_with_agent
+    from Backend.utils.langgraph_agent import process_document_with_agent
 
     content, info = download_file(req.file_id)
     # Parse text
@@ -200,8 +195,8 @@ async def embed_upsert_endpoint(req:EmbedUpsertRequest, _auth: bool = Depends(ge
 
 @app.post("/pinecone/query", response_model=QueryResponse)
 async def query_endpoint(req: QueryRequest, _auth: bool = Depends(get_token)):
-    from utils.embedding import embed_texts
-    from utils.pinecone_store import query as pinecone_query
+    from Backend.utils.embedding import embed_texts
+    from Backend.utils.pinecone_store import query as pinecone_query
     from openai import AzureOpenAI
     
     # Embed the query
@@ -331,7 +326,7 @@ async def get_jira_stories(max_results: int = 100, _auth: bool = Depends(get_tok
     """
     Fetch all stories from Jira
     """
-    from utils.jira_api import search_jql
+    from Backend.utils.jira_api import search_jql
     
     try:
         # JQL to get all stories (issue type = Story)
@@ -379,7 +374,7 @@ async def get_postgres_tables(_auth: bool = Depends(get_token)):
     """
     Get list of all tables in PostgreSQL database
     """
-    from utils.postgres import get_tables
+    from Backend.utils.postgres import get_tables
     
     try:
         tables = get_tables()
@@ -395,7 +390,7 @@ async def query_postgres(req: PostgresQueryRequest, _auth: bool = Depends(get_to
     """
     Query PostgreSQL database - either by table name or custom SQL
     """
-    from utils.postgres import get_table_data, execute_custom_query
+    from Backend.utils.postgres import get_table_data, execute_custom_query
     
     try:
         if req.custom_query:
@@ -425,7 +420,7 @@ async def index_postgres_to_pinecone(req: PostgresIndexRequest, _auth: bool = De
     Index PostgreSQL tables into Pinecone for RAG.
     Extracts data, chunks it, embeds it, and stores in Pinecone vector DB.
     """
-    from utils.postgres_indexer import index_table_to_pinecone, index_all_tables_to_pinecone
+    from Backend.utils.postgres_indexer import index_table_to_pinecone, index_all_tables_to_pinecone
     
     try:
         if req.table_name:

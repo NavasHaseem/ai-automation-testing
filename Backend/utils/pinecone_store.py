@@ -46,28 +46,6 @@ def ensure_index(dimension: int, metric: str = "cosine") -> None:
             f"but app expects {dimension}. Recreate the index to match."
         )
 
-#
-# def upsert_chunks(vectors: List[Tuple[str, List[float], Dict[str, Any]]], namespace: str = "default") -> int:
-#
-#     if not vectors:
-#         return 0
-#
-#
-#     dim = len(vectors[0][1])
-#     for _, vals, _ in vectors:
-#         if len(vals) != dim:
-#             raise ValueError("All vectors must have the same dimension")
-#
-#
-#     ensure_index(dimension=dim)
-#
-#     pc = _get_pc()
-#     index = pc.Index(INDEX_NAME)
-#     payload = [{"id": vid, "values": vals, "metadata": md} for vid, vals, md in vectors]
-#     res = index.upsert(vectors=payload, namespace=namespace)
-#
-#     return res.get("upsertedCount", 0)
-
 
 def upsert_chunks(vectors, namespace="default") -> int:
     pc = _get_pc()
@@ -90,3 +68,11 @@ def query(vector: List[float], top_k: int = 5, namespace: str = "default", filte
         namespace=namespace,
         filter=filter or {},
     )
+
+
+def delete_namespace(namespace: str) -> int:
+    """Delete all vectors from a specific namespace."""
+    pc = _get_pc()
+    index = pc.Index(INDEX_NAME)
+    res = index.delete(delete_all=True, namespace=namespace)
+    return res

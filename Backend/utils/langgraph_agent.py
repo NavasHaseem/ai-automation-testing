@@ -71,7 +71,7 @@ def chunk_document_node(state: DocumentProcessingState) -> DocumentProcessingSta
     """
     Chunk document based on the determined strategy.
     """
-    from utils.chunking import naive_chunks
+    from Backend.utils.chunking import naive_chunks
     
     text = state["document_text"]
     chunk_size = state["chunk_size"]
@@ -90,7 +90,7 @@ def embed_chunks_node(state: DocumentProcessingState) -> DocumentProcessingState
     """
     Generate embeddings for document chunks.
     """
-    from utils.embedding import embed_texts
+    from Backend.utils.embedding import embed_texts
     
     chunks = state["chunks"]
     
@@ -228,7 +228,7 @@ class QueryState(TypedDict):
 
 def embed_query_node(state: QueryState) -> QueryState:
     """Embed the query text."""
-    from utils.embedding import embed_texts
+    from Backend.utils.embedding import embed_texts
     
     query_text = state["query_text"]
     embeddings = embed_texts([query_text])
@@ -263,7 +263,7 @@ def build_filter_node(state: QueryState) -> QueryState:
 
 def search_vectors_node(state: QueryState) -> QueryState:
     """Execute vector search."""
-    from utils.pinecone_store import query
+    from Backend.utils.pinecone_store import query
     
     results = query(
         vector=state["query_embedding"],
