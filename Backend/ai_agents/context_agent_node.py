@@ -3,11 +3,11 @@ from typing import Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from  Backend.prompts.context_prompt import REASONING_PROMPT
+from prompts.context_prompt import REASONING_PROMPT_V2
 import json
 
-from Backend.states.base_state import AgentState
-from Backend.states.structured_context import StructuredContext
+from states.base_state import AgentState
+from states.structured_context import StructuredContext
 
 # -----------------------------
 # LLM initialization
@@ -52,10 +52,12 @@ def context_reasoning_node(AgentState: AgentState) -> Dict[str, Any]:
     # -----------------------------
     # Build final prompt
     # -----------------------------
-    prompt = REASONING_PROMPT.format(
+    prompt = REASONING_PROMPT_V2.format(
         jira_labels=", ".join(AgentState.jira_story.labels),
         jira_description=AgentState.jira_story.description,
+        jira_summary = AgentState.jira_story.summary,
         retrieved_chunks_json=retrieved_chunks_json)
+    
 
     # -----------------------------
     # OpenAI LLM with strict schema

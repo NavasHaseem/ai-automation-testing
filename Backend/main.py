@@ -31,11 +31,16 @@ def get_token(authorization: str = Header(None)):
     return True
 
 # ---- Import service helpers ----
-from Backend.utils.MangoDB import upload_file, list_files, download_file, delete_file
-from Backend.utils.parse_text import extract_text, ParseError
-from Backend.utils.embedding import embed_texts, get_model_info
-from Backend.utils.pinecone_store import ensure_index, upsert_chunks, query
-from Backend.Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse, PostgresTableListResponse, PostgresQueryRequest, PostgresQueryResponse, PostgresIndexRequest, PostgresIndexResponse
+from utils.MangoDB import upload_file, list_files, download_file, delete_file
+from utils.parse_text import extract_text, ParseError
+from utils.embedding import embed_texts, get_model_info
+from utils.pinecone_store import ensure_index, upsert_chunks, query
+from Models.Model import ListQuery, EmbedUpsertRequest, QueryRequest, UpsertResponse, QueryResponse, QueryMatch, JiraStory, JiraStoriesResponse, PostgresTableListResponse, PostgresQueryRequest, PostgresQueryResponse, PostgresIndexRequest, PostgresIndexResponse
+from Models.Model import FetchJiraRequest, FetchJiraResponse
+from tools.jira_fetch_tool import filter_jira
+from tools.pinecone_tool import pinecone_retrieval_tool
+from states.base_state import GenerateTestCasesRequest
+from states.test_case_state import GenerateTestCasesResponse
 
 app = FastAPI(title="AI Testing Backend", version="1.0.0")
 
@@ -469,3 +474,35 @@ async def index_postgres_to_pinecone(req: PostgresIndexRequest, _auth: bool = De
                 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indexing error: {str(e)}")
+
+
+
+@app.post("/fetch-jira", response_model=FetchJiraResponse)
+async def fetch_jira(request: FetchJiraRequest):
+    stories = await filter_jira(label=request.label)
+
+    return {
+        "success": True,
+        "stories": stories
+    }
+
+from states.base_state import GenerateTestCasesRequest
+from states.test_case_state import GenerateTestCasesResponse
+from Models.langgraph_model import build_context_agent_graph
+from states.base_state import AgentState
+
+@app.post("/generate-testcases", response_model= GenerateTestCasesResponse)
+async def generate_testcases(request: GenerateTestCasesRequest):
+
+    jira_story = request.jira_story
+
+    state = AgentState(jira_story=jira_story)
+
+    final_state = build_context_agent_graph().invoke(state)
+
+    testcases = final_state['test_cases']
+
+    return {
+        "jira_key": jira_story.key,
+        "testcases": [tc.model_dump() for tc in testcases]
+    }

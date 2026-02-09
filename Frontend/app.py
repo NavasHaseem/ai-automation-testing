@@ -5,6 +5,9 @@ import streamlit as st
 import requests
 from dotenv import load_dotenv, find_dotenv
 import json
+import pandas as pd
+import re
+import urllib
 
 load_dotenv(find_dotenv())
 BACKEND = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
@@ -21,7 +24,7 @@ except Exception as e:
     st.error(f"Backend unreachable: {e}")
 
 st.sidebar.header("Navigation")
-section = st.sidebar.radio("Choose Section", ["Data Sources", "Jira", "Embed & Upsert", "Query/Test Cases"], index=0)
+section = st.sidebar.radio("Choose Section", ["Data Sources", "Jira", "Embed & Upsert", "Query/Test Cases", "TestCase Generator"], index=0)
 
 # =====================================================
 # SECTION 1: DATA SOURCES
@@ -95,7 +98,7 @@ if section == "Data Sources":
                     if files:
                         import pandas as pd
                         df = pd.DataFrame(files)
-                        st.dataframe(df, use_container_width=True)
+                        st.dataframe(df, width='stretch')
                         
                         # File operations
                         file_id = st.text_input("File ID for operations", key="mongo_file_id")
@@ -213,7 +216,7 @@ if section == "Data Sources":
                                     st.markdown("#### Detailed Results")
                                     import pandas as pd
                                     df = pd.DataFrame(result["table_results"])
-                                    st.dataframe(df, use_container_width=True)
+                                    st.dataframe(df, width='stretch')
                             else:
                                 st.error(f"Indexing failed: HTTP {r.status_code}")
                                 st.code(r.text)
@@ -253,7 +256,7 @@ if section == "Data Sources":
                                                 import pandas as pd
                                                 df = pd.DataFrame(data)
                                                 st.success(f"✅ Retrieved {len(data)} rows")
-                                                st.dataframe(df, use_container_width=True)
+                                                st.dataframe(df, width='stretch')
                                                 
                                                 csv = df.to_csv(index=False)
                                                 st.download_button("Download CSV", csv, f"{selected_table}.csv", "text/csv")
@@ -295,7 +298,7 @@ if section == "Data Sources":
                                 import pandas as pd
                                 df = pd.DataFrame(data)
                                 st.success(f"✅ Query returned {len(data)} rows")
-                                st.dataframe(df, use_container_width=True)
+                                st.dataframe(df,  width='stretch')
                                 
                                 csv = df.to_csv(index=False)
                                 st.download_button("Download Results", csv, "query_results.csv", "text/csv")
@@ -366,7 +369,7 @@ elif section == "Jira":
                         df = pd.DataFrame(stories)
                         st.dataframe(
                             df,
-                            use_container_width=True,
+                            width='stretch',
                             column_config={
                                 "key": "Story Key",
                                 "summary": st.column_config.TextColumn("Summary", width="large"),
@@ -591,7 +594,7 @@ elif section == "Query/Test Cases":
                         import pandas as pd
                         df = pd.DataFrame(data)
                         st.success(f"✅ Query returned {len(data)} rows")
-                        st.dataframe(df, use_container_width=True)
+                        st.dataframe(df,  width='stretch')
                         
                         # Download option
                         csv = df.to_csv(index=False)
@@ -608,3 +611,132 @@ elif section == "Query/Test Cases":
                     st.code(r.text)
             except Exception as e:
                 st.exception(e)
+
+elif section == "TestCase Generator":
+   
+
+    st.set_page_config(page_title="AI Testcase Generator", layout="wide")
+    st.title("🧪 AI Test Case Generator")
+    st.caption("Fetch Jira once → Select → Generate test cases")
+
+    # -------------------------------------------------
+    # Session state
+    # -------------------------------------------------
+    if "jira_df" not in st.session_state:
+        st.session_state.jira_df = None
+
+    if "selected_jira" not in st.session_state:
+        st.session_state.selected_jira = None
+
+    # -------------------------------------------------
+    # Step 1: Fetch Jira stories
+    # -------------------------------------------------
+    st.header("1️⃣ Fetch Jira Stories")
+
+    label = st.text_input(
+        "Enter Jira label",
+        placeholder="airline, payment, authentication"
+    )
+
+    if st.button("Fetch Jira Stories"):
+        if not label.strip():
+            st.warning("Please enter a label")
+        else:
+            with st.spinner("Fetching Jira stories..."):
+                resp = requests.post( 
+                    f"{BACKEND}/fetch-jira",
+                    json={"label": label}
+                )
+
+            if resp.status_code != 200:
+                st.error("Failed to fetch Jira stories")
+            else:
+                jira_data = resp.json()
+
+                if not jira_data:
+                    st.warning("No Jira stories found")
+                else:
+                    df = pd.DataFrame(jira_data['stories']) 
+                    # Normalize columns for UI
+                    df["Labels"] = df["Labels"].apply(
+                        lambda x: ", ".join(x) if isinstance(x, list) else x
+                    )
+
+                    st.session_state.jira_df = df
+                    st.success(f"Fetched {len(df)} Jira stories")
+
+    # -------------------------------------------------
+    # Step 2: Display Jira stories
+    # -------------------------------------------------
+    if st.session_state.jira_df is not None:
+        st.header("2️⃣ Select a Jira Story")
+
+        st.dataframe(
+            st.session_state.jira_df,
+             width='stretch',
+            height=300,
+        )
+
+        selected_key = st.selectbox(
+            "Choose one Jira story",
+            st.session_state.jira_df["Key"].tolist()
+        )
+
+        selected_row = (
+            st.session_state.jira_df[
+                st.session_state.jira_df["Key"] == selected_key
+            ]
+            .iloc[0]
+            .to_dict()
+        )
+
+        st.session_state.selected_jira = {
+            "key": selected_row["Key"],
+            "labels": selected_row["Labels"].split(", "),
+            "description": selected_row["description"],
+            "summary": selected_row['Summary']
+        }
+
+        with st.expander("🔍 Selected Jira Story (Payload Preview)"):
+            st.json(st.session_state.selected_jira)
+
+    # -------------------------------------------------
+    # Step 3: Generate Testcases
+    # -------------------------------------------------
+    if st.session_state.selected_jira:
+        st.header("3️⃣ Generate Test Cases")
+
+        if st.button("Generate Test Cases"):
+            with st.spinner("Generating test cases..."):
+                resp = requests.post(
+                    f"{BACKEND}/generate-testcases",
+                    json={"jira_story": st.session_state.selected_jira}
+                )
+
+            if resp.status_code != 200:
+                st.error("Test case generation failed")
+                st.text(resp.text)
+            else:
+                result = resp.json()
+                testcases = result.get("testcases", [])
+
+                if not testcases:
+                    st.warning("No test cases generated")
+                else:
+                    tc_df = pd.DataFrame(testcases)
+
+                    st.success(
+                        f"Generated {len(tc_df)} test cases for {result['jira_key']}"
+                    )
+
+                    st.dataframe(tc_df,  width='stretch')
+
+                    # CSV download
+                    csv = tc_df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        label="⬇️ Download Test Cases (CSV)",
+                        data=csv,
+                        file_name=f"{result['jira_key']}_testcases.csv",
+                        mime="text/csv",
+                    )
+

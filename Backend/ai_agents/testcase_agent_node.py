@@ -4,9 +4,9 @@ from typing import Dict, Any, List
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from Backend.states.base_state import AgentState
-from Backend.states.test_case_state import TestCaseList
-from Backend.prompts.testcase_generate_prompt import TESTCASE_GENERATOR_PROMPT
+from states.base_state import AgentState
+from states.test_case_state import TestCaseList
+from prompts.testcase_generate_prompt import TESTCASE_GENERATOR_PROMPT_V2
 
 
 
@@ -45,10 +45,10 @@ def testcase_generator_node(AgentState: AgentState) -> Dict[str, Any]:
 # {jira_story_description}
 
 
-    prompt = TESTCASE_GENERATOR_PROMPT.format(
+    prompt = TESTCASE_GENERATOR_PROMPT_V2.format(
         jira_story_key=AgentState.jira_story.key,
         jira_story_priority = AgentState.jira_story.priority,
-        jira_story_labels=", ".join(AgentState.jira_story.labels),
+        jira_story_summary = AgentState.jira_story.summary,
         jira_story_description = AgentState.jira_story.description,
         structured_context = structured_context_json,
     )

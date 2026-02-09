@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
 
@@ -41,13 +41,36 @@ class QueryResponse(BaseModel):
     postgres_data: Optional[Dict[str, Any]] = None  # PostgreSQL context
     postgres_data: Optional[Dict[str, Any]] = None  # PostgreSQL context
 
+class JiraFetch(BaseModel):
+    Key: str = Field(..., example="AATA-12")
+    Summary: str = Field(..., example="Flight booking should work")
+    Status: Optional[str] = Field(None, example="In Progress")
+    Assignee: Optional[str] = Field(None, example="John Doe")
+    Priority: Optional[str] = Field(None, example="High")
+    Project: Optional[str] = Field(None, example="AATA")
+    description: Optional[str] = Field(
+        None,
+        example="As a user, I want to book a flight..."
+    )
+    IssueType: Optional[str] = Field(None, example="Story")
+    Labels: List[str] = Field(default_factory=list)
+    Created: Optional[str] = Field(
+        None, example="2025-01-01T10:30:00.000+0000"
+    )
+    Updated: Optional[str] = Field(
+        None, example="2025-01-03T12:45:00.000+0000"
+    )
+
+
 class JiraStory(BaseModel):
-    key: str
-    summary: str
-    status: str
-    issue_type: str
-    assignee: Optional[str] = None
-    priority: Optional[str] = None
+    key: str = Field(..., description="Jira issue key, e.g., AIR-102") 
+    Summary: str = Field(..., example="Flight booking should work")
+    Status: Optional[str] = Field(None, example="In Progress")
+    IssueType: Optional[str] = Field(None, example="Story")
+    Assignee: Optional[str] = Field(None, example="John Doe")
+    priority: Optional[str] = Field(None, description="Priority of the Jira story")
+   
+
 
 class JiraStoriesResponse(BaseModel):
     status: str
@@ -83,3 +106,10 @@ class PostgresIndexResponse(BaseModel):
     total_vectors: int
     namespace: str
     table_results: Optional[List[Dict[str, Any]]] = None
+
+class FetchJiraRequest(BaseModel):
+    label: str
+
+class FetchJiraResponse(BaseModel):
+    success: bool
+    stories: list[JiraFetch]

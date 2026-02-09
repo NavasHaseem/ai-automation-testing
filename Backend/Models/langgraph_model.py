@@ -2,11 +2,11 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
 # Import your nodes
-from Backend.tools.pinecone_tool import pinecone_retrieval_tool  
-from Backend.ai_agents. context_agent_node import context_reasoning_node
-from Backend.ai_agents.testcase_agent_node import testcase_generator_node
+from tools.pinecone_tool import pinecone_retrieval_tool  
+from ai_agents.context_agent_node import context_reasoning_node
+from ai_agents.testcase_agent_node import testcase_generator_node
  
-from Backend.states.base_state import AgentState, JiraStory
+from states.base_state import AgentState, JiraStory
 
 # -----------------------------
 # Initialize nodes

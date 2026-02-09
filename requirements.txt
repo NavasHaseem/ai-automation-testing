@@ -28,3 +28,6 @@ langchain-openai==0.2.4
 openai
 fastmcp==0.4.1
 mcp==1.25.0
+pymongo
+PyMuPDF 
+python-docx

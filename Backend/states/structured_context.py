@@ -1,6 +1,6 @@
 from typing import List, Dict, Literal
 from pydantic import BaseModel, Field
-
+from enum import Enum
 
 # -----------------------------
 # Evidence Reference
@@ -43,6 +43,50 @@ class StoryGoal(BaseModel):
     evidence: List[EvidenceRef] = Field(
         default_factory=list,
         description="Chunks that justify or clarify the goal"
+    )
+
+# -----------------------------
+#  Structural Behaviour 
+# -----------------------------
+
+class BehaviorIntent(str, Enum):
+    FUNCTIONAL = "Functional"
+    VALIDATION = "Validation"
+    NEGATIVE = "Negative"
+    BOUNDARY = "Boundary"
+    INTEGRATION = "Integration"
+    SECURITY = "Security"
+
+
+class Evidence(BaseModel):
+    chunk_id: str
+    source: str
+    namespace: str
+
+class TestableBehavior(BaseModel):
+    behavior_id: str = Field(
+        ...,
+        description="Unique identifier for the behavior within the Jira story"
+    )
+    behavior_description: str = Field(
+        ...,
+        description="Clear description of the promised system behavior"
+    )
+    behavior_intent: BehaviorIntent = Field(
+        ...,
+        description="Testing intent classification for this behavior"
+    )
+    derived_from: str = Field(
+        ...,
+        description="Reference to acceptance criteria, rule, or story section"
+    )
+    observable_outcome: str = Field(
+        ...,
+        description="Externally observable result used to verify behavior"
+    )
+    evidence: List[Evidence] = Field(
+        default_factory=list,
+        description="Supporting evidence from retrieved chunks or AC"
     )
 
 
@@ -100,6 +144,7 @@ class StructuredContext(BaseModel):
     intent_identification: IntentIdentification
     story_goal: StoryGoal
     in_scope_systems: List[InScopeSystem] = Field(default_factory=list)
+    testable_behaviors: List[TestableBehavior] = Field(default_factory=list)
     constraints_and_rules: List[ConstraintRule] = Field(default_factory=list)
 
     grounding_statement: str = Field(
