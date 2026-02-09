@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.tools import tool
 from pinecone import Pinecone
-from Backend.states.base_state import AgentState, RetrievedChunk
+from states.base_state import AgentState, RetrievedChunk
  
 from dotenv import load_dotenv
 import os 
