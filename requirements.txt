@@ -3,7 +3,8 @@ langchain-core
 pydantic
 
 # --- FastAPI stack ---
-fastapi==0.110.0
+fastapi >= 0.115.2, < 1.0
+
 # uvicorn[standard]==0.29.0
 
 # CORS comes via Starlette which FastAPI pins; no need to add explicitly.
@@ -31,3 +32,4 @@ mcp==1.25.0
 pymongo
 PyMuPDF 
 python-docx
+uv
