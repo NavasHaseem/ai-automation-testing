@@ -2,6 +2,17 @@ from typing import Literal, List
 from pydantic import BaseModel, Field
 
 
+from enum import Enum
+
+class BehaviorIntent(str, Enum):
+    FUNCTIONAL = "Functional"
+    VALIDATION = "Validation"
+    NEGATIVE = "Negative"
+    BOUNDARY = "Boundary"
+    INTEGRATION = "Integration"
+    SECURITY = "Security"
+
+
 class TestCaseRow(BaseModel):
     """
     Represents a single, independent test case row.
@@ -30,6 +41,15 @@ class TestCaseRow(BaseModel):
         )
     )
 
+    test_type: BehaviorIntent = Field(
+        description=(
+            "Type of test case derived directly from behavior intent. "
+            "Must be one of: Functional, Validation, Negative, Boundary, "
+            "Integration, Security."
+        )
+    )
+
+    
     fix_version: str = Field(
         description="Target sprint or release version (e.g., Sprint_2026_01)."
     )
@@ -64,3 +84,7 @@ class TestCaseList(BaseModel):
     Wrapper required for LangChain structured output.
     """
     test_cases: List[TestCaseRow]
+
+class GenerateTestCasesResponse(BaseModel):
+    jira_key: str = Field(..., example="AATA-12")
+    testcases: List[TestCaseRow]
