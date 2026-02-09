@@ -1,7 +1,8 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from Backend.states.structured_context import StructuredContext
-from Backend.states.test_case_state import TestCaseRow
+from states.structured_context import StructuredContext
+from states.test_case_state import TestCaseRow
+
 
 
 # -----------------------------
@@ -12,6 +13,7 @@ class JiraStory(BaseModel):
     key: str = Field(..., description="Jira issue key, e.g., AIR-102")
     labels: List[str] = Field(default_factory=list, description="Jira labels used as domain signals")
     description: str = Field(..., description="Full Jira description including acceptance criteria")
+    summary: str = Field(..., example="Flight booking should work")
     priority: Optional[str] = Field(None, description="Priority of the Jira story")
 
 
@@ -25,8 +27,6 @@ class RetrievedChunk(BaseModel):
     source: str = Field(..., description="Source system, e.g., jira, confluence, mongodb, logs")
     namespace: str = Field(..., description="Pinecone namespace")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-
 
 # -----------------------------
 # LangGraph Agent State
@@ -55,3 +55,7 @@ class AgentState(BaseModel):
         None,
         description="Error message if the agent fails to produce valid output"
     )
+
+
+class GenerateTestCasesRequest(BaseModel):
+    jira_story: JiraStory
