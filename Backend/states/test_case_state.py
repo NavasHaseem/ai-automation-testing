@@ -49,7 +49,7 @@ class TestCaseRow(BaseModel):
         )
     )
 
-    
+
     fix_version: str = Field(
         description="Target sprint or release version (e.g., Sprint_2026_01)."
     )
@@ -88,3 +88,6 @@ class TestCaseList(BaseModel):
 class GenerateTestCasesResponse(BaseModel):
     jira_key: str = Field(..., example="AATA-12")
     testcases: List[TestCaseRow]
+
+
+ 
