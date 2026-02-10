@@ -24,7 +24,7 @@ except Exception as e:
     st.error(f"Backend unreachable: {e}")
 
 st.sidebar.header("Navigation")
-section = st.sidebar.radio("Choose Section", ["Data Sources", "Jira", "Embed & Upsert", "Query/Test Cases", "TestCase Generator"], index=0)
+section = st.sidebar.radio("Choose Section", ["Data Sources", "Embed & Upsert", "TestCase Generator"], index=0)
 
 # =====================================================
 # SECTION 1: DATA SOURCES
@@ -475,143 +475,6 @@ elif section == "Embed & Upsert":
             except Exception as e:
                 st.exception(e)
 
-# =====================================================
-# SECTION 4: QUERY / TEST CASES
-# =====================================================
-elif section == "Query/Test Cases":
-    st.header("🔍 Query / Test Cases")
-    st.info("Search across all indexed data sources using semantic search")
-    
-    # Query configuration
-    st.markdown("### Query Configuration")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        search_scope = st.selectbox(
-            "Search Scope",
-            ["all", "mongodb-files", "postgresql-data"],
-            help="'all' searches across documents and PostgreSQL data"
-        )
-        top_k = st.slider("Top-K Results", 1, 20, 5, key="query_top_k")
-    
-    with col2:
-        filter_json = st.text_area(
-            "Filter (JSON)",
-            value='{}',
-            height=100,
-            help="Optional Pinecone filter",
-            key="query_filter"
-        )
-    
-    # Query input
-    query_text = st.text_area(
-        "Your Question",
-        placeholder="e.g., What are the main features of the system?",
-        height=120,
-        key="query_text"
-    )
-    
-    if st.button("🔎 Search", type="primary", key="query_search_btn"):
-        if not query_text:
-            st.warning("Please enter a question")
-        else:
-            try:
-                body = {
-                    "namespace": search_scope,
-                    "top_k": top_k,
-                    "filter": json.loads(filter_json or "{}"),
-                    "text": query_text,
-                }
-                
-                r = requests.post(
-                    f"{BACKEND}/pinecone/query",
-                    json=body,
-                    headers={"Authorization": f"Bearer {API_TOKEN}"},
-                    timeout=60
-                )
-                
-                if not r.ok:
-                    st.error(f"Error: HTTP {r.status_code}")
-                    st.code(r.text)
-                else:
-                    try:
-                        res = r.json()
-                        
-                        # Display AI-generated answer prominently
-                        st.markdown("### 🤖 AI-Generated Answer")
-                        answer = res.get("answer", "No answer generated")
-                        st.success(answer)
-                        
-                        # Show PostgreSQL data if available
-                        postgres_data = res.get("postgres_data")
-                        if postgres_data and postgres_data.get("record_count", 0) > 0:
-                            st.markdown("### 📊 Database Context")
-                            st.info(f"**Source:** {postgres_data.get('source', 'Unknown')}")
-                            st.write(f"**Records Found:** {postgres_data.get('record_count', 0)}")
-                            st.caption(postgres_data.get("message", ""))
-                        
-                        # Show document sources
-                        matches = res.get("matches", [])
-                        if matches:
-                            st.markdown("### 📄 Source Documents")
-                            st.caption(f"Found {len(matches)} relevant sources")
-                            
-                            for i, match in enumerate(matches, 1):
-                                source_type = match.get("metadata", {}).get("source", "unknown")
-                                score = match.get("score", 0)
-                                
-                                with st.expander(f"Source {i} - Score: {score:.3f} ({source_type})"):
-                                    metadata = match.get("metadata", {})
-                                    
-                                    # Show metadata
-                                    if source_type == "postgresql":
-                                        st.write(f"**Table:** {metadata.get('table_name', 'N/A')}")
-                                        st.write(f"**Row IDs:** {', '.join(metadata.get('row_ids', []))}")
-                                    else:
-                                        st.write(f"**Filename:** {metadata.get('filename', 'N/A')}")
-                                        st.write(f"**Chunk ID:** {metadata.get('chunk_id', 'N/A')}")
-                                    
-                                    # Show text content
-                                    text = metadata.get("text", "") or metadata.get("text_preview", "")
-                                    if text:
-                                        st.text_area("Content", text, height=150, key=f"match_text_{i}")
-                        else:
-                            st.warning("No matching sources found")
-                            
-                    except Exception as json_err:
-                        st.error("Backend returned non-JSON response:")
-                        st.code(r.text)
-            except json.JSONDecodeError:
-                st.error("Invalid JSON in filter field")
-            except Exception as e:
-                st.exception(e)
-                
-                if r.ok:
-                    res = r.json()
-                    data = res.get("data", [])
-                    
-                    if data:
-                        import pandas as pd
-                        df = pd.DataFrame(data)
-                        st.success(f"✅ Query returned {len(data)} rows")
-                        st.dataframe(df,  width='stretch')
-                        
-                        # Download option
-                        csv = df.to_csv(index=False)
-                        st.download_button(
-                            "Download Results as CSV",
-                            csv,
-                            "query_results.csv",
-                            "text/csv"
-                        )
-                    else:
-                        st.info("Query returned no results")
-                else:
-                    st.error(f"Error: HTTP {r.status_code}")
-                    st.code(r.text)
-            except Exception as e:
-                st.exception(e)
-
 elif section == "TestCase Generator":
    
 
@@ -628,6 +491,11 @@ elif section == "TestCase Generator":
     if "selected_jira" not in st.session_state:
         st.session_state.selected_jira = None
 
+    if "structured_context" not in st.session_state:
+        st.session_state.structured_context = None
+
+    if "testcases" not in st.session_state:
+        st.session_state.testcases = []
     # -------------------------------------------------
     # Step 1: Fetch Jira stories
     # -------------------------------------------------
@@ -700,17 +568,102 @@ elif section == "TestCase Generator":
         with st.expander("🔍 Selected Jira Story (Payload Preview)"):
             st.json(st.session_state.selected_jira)
 
+
+    if st.session_state.selected_jira:
+        st.header("3️⃣ Generate Structured Context")
+
+        if st.button("Generate Context"):
+            with st.spinner("Analyzing Jira story..."):
+                resp = requests.post(
+                    f"{BACKEND}/generate-context",
+                    json={"jira_story": st.session_state.selected_jira}
+                )
+
+                if resp.status_code == 200:
+                    st.session_state.structured_context = resp.json()["structured_context"]
+                    st.success("Structured Context generated")
+                else:
+                    st.error("Failed to generate context")
+
+    if st.session_state.structured_context:
+        ctx = st.session_state.structured_context
+
+        st.header("4️⃣ Review Structured Context")
+
+        # ----------------------------
+        # Story Intent
+        # ----------------------------
+        st.subheader("🎯 Story Intent")
+        st.write(ctx["intent_identification"]["summary"])
+
+        # ----------------------------
+        # Story Goal
+        # ----------------------------
+        st.subheader("🏁 Story Goal")
+        st.write(ctx["story_goal"]["goal_statement"])
+
+        st.markdown("**Success Conditions:**")
+        for sc in ctx["story_goal"]["success_conditions"]:
+            st.write(f"- {sc}")
+
+        # ----------------------------
+        # In-Scope Systems
+        # ----------------------------
+        st.subheader("🧩 In-Scope Systems")
+        st.table([
+            {
+                "System": s["system_name"],
+                "Type": s["system_type"],
+                "Responsibility": s["responsibility"]
+            }
+            for s in ctx["in_scope_systems"]
+        ])
+
+        # ----------------------------
+        # Testable Behaviors
+        # ----------------------------
+        st.subheader("🧪 Testable Behaviors")
+        st.table([
+            {
+                " ID ": b["behavior_id"],
+                "Behavior": b["behavior_description"],
+                "Test Type": b["behavior_intent"],
+                "Observable Outcome": b["observable_outcome"]
+            }
+            for b in ctx["testable_behaviors"]
+        ])
+
+        # ----------------------------
+        # Constraints & Rules
+        # ----------------------------
+        st.subheader("⚠️ Constraints & Rules")
+        if ctx["constraints_and_rules"]:
+            for r in ctx["constraints_and_rules"]:
+                st.write(f"- {r['rule']}")
+        else:
+            st.write("No explicit constraints defined.")
+
+        # ----------------------------
+        # Grounding Statement
+        # ----------------------------
+        with st.expander("📌 Grounding Statement"):
+            st.write(ctx["grounding_statement"])
+
+
     # -------------------------------------------------
     # Step 3: Generate Testcases
     # -------------------------------------------------
-    if st.session_state.selected_jira:
+    if st.session_state.structured_context:
         st.header("3️⃣ Generate Test Cases")
 
         if st.button("Generate Test Cases"):
             with st.spinner("Generating test cases..."):
                 resp = requests.post(
                     f"{BACKEND}/generate-testcases",
-                    json={"jira_story": st.session_state.selected_jira}
+                    json={
+                    "jira_story": st.session_state.selected_jira,
+                    "structured_context": st.session_state.structured_context
+                }
                 )
 
             if resp.status_code != 200:
