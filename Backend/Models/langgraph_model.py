@@ -39,3 +39,37 @@ def build_context_agent_graph():
 
     graph = graph_builder.compile()
     return graph
+
+
+def build_context_graph():
+    graph_builder = StateGraph(AgentState)
+
+    graph_builder.add_node(
+        "pinecone_retrieval",
+        pinecone_retrieval_tool
+    )
+
+    graph_builder.add_node(
+        "context_reasoning",
+        context_reasoning_node
+    )
+
+    graph_builder.add_edge(START, "pinecone_retrieval")
+    graph_builder.add_edge("pinecone_retrieval", "context_reasoning")
+    graph_builder.add_edge("context_reasoning", END)
+
+    return graph_builder.compile()
+
+
+def build_testcase_graph():
+    graph_builder = StateGraph(AgentState)
+
+    graph_builder.add_node(
+        "testcase_generator",
+        testcase_generator_node
+    )
+
+    graph_builder.add_edge(START, "testcase_generator")
+    graph_builder.add_edge("testcase_generator", END)
+
+    return graph_builder.compile()

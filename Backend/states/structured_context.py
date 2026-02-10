@@ -154,3 +154,9 @@ class StructuredContext(BaseModel):
             "Jira description/acceptance criteria and retrieved Pinecone chunks"
         )
     )
+
+
+
+class GenerateContextResponse(BaseModel):
+    jira_key: str
+    structured_context: StructuredContext
