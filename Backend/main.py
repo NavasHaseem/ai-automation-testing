@@ -486,12 +486,13 @@ async def fetch_jira(request: FetchJiraRequest):
         "stories": stories
     }
 
-from states.base_state import GenerateTestCasesRequest
+from states.base_state import GenerateContextRequest, GenerateTestCasesRequest
 from states.test_case_state import GenerateTestCasesResponse
-from Models.langgraph_model import build_context_agent_graph
+from states.structured_context import GenerateContextResponse
+from Models.langgraph_model import build_context_agent_graph, build_context_graph, build_testcase_graph
 from states.base_state import AgentState
 
-@app.post("/generate-testcases", response_model= GenerateTestCasesResponse)
+@app.post("/generate_-testcases", response_model= GenerateTestCasesResponse)
 async def generate_testcases(request: GenerateTestCasesRequest):
 
     jira_story = request.jira_story
@@ -505,4 +506,34 @@ async def generate_testcases(request: GenerateTestCasesRequest):
     return {
         "jira_key": jira_story.key,
         "testcases": [tc.model_dump() for tc in testcases]
+    }
+
+@app.post("/generate-context",  response_model= GenerateContextResponse)
+def generate_context(request: GenerateContextRequest):
+
+    jira_story = request.jira_story
+
+    state = AgentState(jira_story=jira_story)
+
+    final_state = build_context_graph().invoke(state)
+
+    return {
+        "jira_key": jira_story.key,
+        "structured_context": final_state["structured_context"].model_dump()
+    }
+
+
+@app.post("/generate-testcases", response_model= GenerateTestCasesResponse)
+def generate_testcases(request: GenerateTestCasesRequest):
+
+    state = AgentState(
+        jira_story=request.jira_story,
+        structured_context=request.structured_context
+    )
+
+    final_state = build_testcase_graph().invoke(state)
+
+    return {
+        "jira_key": request.jira_story.key,
+        "testcases": [tc.model_dump() for tc in final_state["test_cases"]]
     }
