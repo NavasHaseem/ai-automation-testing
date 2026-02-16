@@ -13,11 +13,10 @@ from states.structured_context import StructuredContext
 # LLM initialization
 # -----------------------------
 llm = ChatOpenAI(
-    model_name="gpt-5-mini",
-    temperature=0.0  # deterministic
-)
+    model="gpt-4o-mini",
+).with_structured_output(StructuredContext) 
 
-
+print("llm loaded")
 
 def context_reasoning_node(AgentState: AgentState) -> Dict[str, Any]:
     """
@@ -58,15 +57,6 @@ def context_reasoning_node(AgentState: AgentState) -> Dict[str, Any]:
         jira_summary = AgentState.jira_story.summary,
         retrieved_chunks_json=retrieved_chunks_json)
     
-
-    # -----------------------------
-    # OpenAI LLM with strict schema
-    # -----------------------------
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0,
-    ).with_structured_output(StructuredContext)
-
     # -----------------------------
     # Invoke LLM
     # -----------------------------
@@ -76,7 +66,7 @@ def context_reasoning_node(AgentState: AgentState) -> Dict[str, Any]:
             HumanMessage(content=prompt),
         ]
     )
-
+    
     # -----------------------------
     # Update state
     # -----------------------------

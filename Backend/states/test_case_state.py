@@ -11,6 +11,12 @@ class BehaviorIntent(str, Enum):
     BOUNDARY = "Boundary"
     INTEGRATION = "Integration"
     SECURITY = "Security"
+<<<<<<< HEAD
+=======
+    #smoke
+    #sanity
+    #regression
+>>>>>>> feature
 
 
 class TestCaseRow(BaseModel):

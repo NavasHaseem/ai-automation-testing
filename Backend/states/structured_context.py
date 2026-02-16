@@ -141,7 +141,7 @@ class ConstraintRule(BaseModel):
 # -----------------------------
 
 class StructuredContext(BaseModel):
-    intent_identification: IntentIdentification
+    story_intent: IntentIdentification
     story_goal: StoryGoal
     in_scope_systems: List[InScopeSystem] = Field(default_factory=list)
     testable_behaviors: List[TestableBehavior] = Field(default_factory=list)

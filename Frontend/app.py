@@ -24,7 +24,7 @@ except Exception as e:
     st.error(f"Backend unreachable: {e}")
 
 st.sidebar.header("Navigation")
-section = st.sidebar.radio("Choose Section", ["Data Sources", "Embed & Upsert", "TestCase Generator"], index=0)
+section = st.sidebar.radio("Choose Section", ["TestCase Generator"], index=0)
 
 # =====================================================
 # SECTION 1: DATA SOURCES
@@ -485,17 +485,21 @@ elif section == "TestCase Generator":
     # -------------------------------------------------
     # Session state
     # -------------------------------------------------
+ 
+
+
     if "jira_df" not in st.session_state:
         st.session_state.jira_df = None
 
-    if "selected_jira" not in st.session_state:
-        st.session_state.selected_jira = None
+    if "selected_jiras" not in st.session_state:
+        st.session_state.selected_jiras = []   # List[Dict]
 
-    if "structured_context" not in st.session_state:
-        st.session_state.structured_context = None
+    if "structured_contexts" not in st.session_state:
+        st.session_state.structured_contexts = {}  # key -> context
 
-    if "testcases" not in st.session_state:
-        st.session_state.testcases = []
+    if "testcases_by_jira" not in st.session_state:
+        st.session_state.testcases_by_jira = {}  # key -> list of testcases
+
     # -------------------------------------------------
     # Step 1: Fetch Jira stories
     # -------------------------------------------------
@@ -532,69 +536,109 @@ elif section == "TestCase Generator":
 
                     st.session_state.jira_df = df
                     st.success(f"Fetched {len(df)} Jira stories")
-
+ 
     # -------------------------------------------------
-    # Step 2: Display Jira stories
+    # Step 2: Display Jira stories (Multi-select)
     # -------------------------------------------------
     if st.session_state.jira_df is not None:
-        st.header("2️⃣ Select a Jira Story")
+        st.header("2️⃣ Select Jira Stories")
 
-        st.dataframe(
+        # Ensure Select column exists
+        if "Select" not in st.session_state.jira_df.columns:
+            st.session_state.jira_df.insert(0, "Select", False)
+
+        edited_df = st.data_editor(
             st.session_state.jira_df,
-             width='stretch',
+            column_config={
+                "Select": st.column_config.CheckboxColumn(
+                    "Select",
+                    help="Select Jira stories to process"
+                )
+            },
+            disabled=[
+                col for col in st.session_state.jira_df.columns
+                if col != "Select"
+            ],
             height=300,
+            use_container_width=True
         )
 
-        selected_key = st.selectbox(
-            "Choose one Jira story",
-            st.session_state.jira_df["Key"].tolist()
-        )
+        # Extract selected rows
+        selected_rows = edited_df[edited_df["Select"] == True]
 
-        selected_row = (
-            st.session_state.jira_df[
-                st.session_state.jira_df["Key"] == selected_key
-            ]
-            .iloc[0]
-            .to_dict()
-        )
+        # Build selected_jiras list
+        st.session_state.selected_jiras = [
+            {
+                "key": row["Key"],
+                "labels": row["Labels"].split(", "),
+                "summary": row["Summary"],
+                "description": row["description"]
+            }
+            for _, row in selected_rows.iterrows()
+        ]
 
-        st.session_state.selected_jira = {
-            "key": selected_row["Key"],
-            "labels": selected_row["Labels"].split(", "),
-            "description": selected_row["description"],
-            "summary": selected_row['Summary']
-        }
+        # Preview selected Jira stories
+        with st.expander("🔍 Selected Jira Stories (Payload Preview)"):
+            if st.session_state.selected_jiras:
+                for jira in st.session_state.selected_jiras:
+                    st.markdown(f"### {jira['key']}")
+                    st.write(jira["summary"])
+            else:
+                st.info("No Jira stories selected yet.")
 
-        with st.expander("🔍 Selected Jira Story (Payload Preview)"):
-            st.json(st.session_state.selected_jira)
 
-
-    if st.session_state.selected_jira:
+    # -------------------------------------------------
+    # Step 3: Generate Structured Context (Multi-Jira)
+    # -------------------------------------------------
+    if st.session_state.selected_jiras:
         st.header("3️⃣ Generate Structured Context")
 
         if st.button("Generate Context"):
-            with st.spinner("Analyzing Jira story..."):
-                resp = requests.post(
-                    f"{BACKEND}/generate-context",
-                    json={"jira_story": st.session_state.selected_jira}
-                )
+            with st.spinner("Analyzing selected Jira stories..."):
 
-                if resp.status_code == 200:
-                    st.session_state.structured_context = resp.json()["structured_context"]
-                    st.success("Structured Context generated")
-                else:
-                    st.error("Failed to generate context")
+                structured_contexts = {}
 
-    if st.session_state.structured_context:
-        ctx = st.session_state.structured_context
+                for jira in st.session_state.selected_jiras:
+                    resp = requests.post(
+                        f"{BACKEND}/generate-context",
+                        json={"jira_story": jira}
+                    )
 
+                    if resp.status_code == 200:
+                        structured_contexts[jira["key"]] = resp.json()[
+                            "structured_context"
+                        ]
+                    else:
+                        st.error(
+                            f"Failed to generate context for {jira['key']}"
+                        )
+
+                if structured_contexts:
+                    st.session_state.structured_contexts = structured_contexts
+                    st.success(
+                        f"Structured Context generated for {len(structured_contexts)} Jira stories"
+                    )
+
+
+    # -------------------------------------------------
+    # Step 4: Review Structured Context (Multi-Jira)
+    # -------------------------------------------------
+    if st.session_state.structured_contexts:
         st.header("4️⃣ Review Structured Context")
+
+        # Select which Jira to review
+        selected_ctx_key = st.selectbox(
+            "Select Jira story to review",
+            list(st.session_state.structured_contexts.keys())
+        )
+
+        ctx = st.session_state.structured_contexts[selected_ctx_key]
 
         # ----------------------------
         # Story Intent
         # ----------------------------
         st.subheader("🎯 Story Intent")
-        st.write(ctx["intent_identification"]["summary"])
+        st.write(ctx["story_intent"]["summary"])
 
         # ----------------------------
         # Story Goal
@@ -602,47 +646,52 @@ elif section == "TestCase Generator":
         st.subheader("🏁 Story Goal")
         st.write(ctx["story_goal"]["goal_statement"])
 
-        st.markdown("**Success Conditions:**")
-        for sc in ctx["story_goal"]["success_conditions"]:
-            st.write(f"- {sc}")
+        if ctx["story_goal"]["success_conditions"]:
+            st.markdown("**Success Conditions:**")
+            for cond in ctx["story_goal"]["success_conditions"]:
+                st.markdown(f"- {cond}")
 
+
+        
         # ----------------------------
         # In-Scope Systems
         # ----------------------------
         st.subheader("🧩 In-Scope Systems")
-        st.table([
-            {
-                "System": s["system_name"],
-                "Type": s["system_type"],
-                "Responsibility": s["responsibility"]
-            }
-            for s in ctx["in_scope_systems"]
-        ])
+
+        for system in ctx["in_scope_systems"]:
+            with st.expander(system["system_name"]):
+                st.markdown(f"**Type:** {system['system_type']}")
+                st.markdown(f"**Responsibility:** {system['responsibility']}")
 
         # ----------------------------
         # Testable Behaviors
         # ----------------------------
         st.subheader("🧪 Testable Behaviors")
-        st.table([
-            {
-                " ID ": b["behavior_id"],
-                "Behavior": b["behavior_description"],
-                "Test Type": b["behavior_intent"],
-                "Observable Outcome": b["observable_outcome"]
-            }
-            for b in ctx["testable_behaviors"]
-        ])
+
+        for behavior in ctx["testable_behaviors"]:
+            with st.expander(
+                f"[{behavior['behavior_intent']}] {behavior['behavior_description']}"
+            ):
+                st.markdown(f"**Derived From:** {behavior['derived_from']}")
+                st.markdown(
+                    f"**Observable Outcome:** {behavior['observable_outcome']}"
+                )
 
         # ----------------------------
         # Constraints & Rules
         # ----------------------------
-        st.subheader("⚠️ Constraints & Rules")
         if ctx["constraints_and_rules"]:
-            for r in ctx["constraints_and_rules"]:
-                st.write(f"- {r['rule']}")
-        else:
-            st.write("No explicit constraints defined.")
+            st.subheader("⚠️ Constraints & Rules")
 
+            for rule in ctx["constraints_and_rules"]:
+                with st.expander(rule["rule"]):
+                    st.markdown(f"**Rule Type:** {rule['rule_type']}")
+                    st.markdown(
+                        f"**Derived From:** {rule['derived_from']}"
+                    )
+
+
+        
         # ----------------------------
         # Grounding Statement
         # ----------------------------
@@ -650,46 +699,61 @@ elif section == "TestCase Generator":
             st.write(ctx["grounding_statement"])
 
 
+
     # -------------------------------------------------
-    # Step 3: Generate Testcases
+    # Step 5: Generate Test Cases (Multi-Jira)
     # -------------------------------------------------
-    if st.session_state.structured_context:
-        st.header("3️⃣ Generate Test Cases")
+    if st.session_state.structured_contexts:
+        st.header("5️⃣ Generate Test Cases")
 
         if st.button("Generate Test Cases"):
-            with st.spinner("Generating test cases..."):
-                resp = requests.post(
-                    f"{BACKEND}/generate-testcases",
-                    json={
-                    "jira_story": st.session_state.selected_jira,
-                    "structured_context": st.session_state.structured_context
-                }
-                )
+            with st.spinner("Generating test cases for selected Jira stories..."):
 
-            if resp.status_code != 200:
-                st.error("Test case generation failed")
-                st.text(resp.text)
-            else:
-                result = resp.json()
-                testcases = result.get("testcases", [])
+                for jira in st.session_state.selected_jiras:
+                    jira_key = jira["key"]
 
-                if not testcases:
-                    st.warning("No test cases generated")
-                else:
-                    tc_df = pd.DataFrame(testcases)
+                    structured_context = st.session_state.structured_contexts.get(jira_key)
+                    if not structured_context:
+                        continue  # safety guard
 
-                    st.success(
-                        f"Generated {len(tc_df)} test cases for {result['jira_key']}"
+                    resp = requests.post(
+                        f"{BACKEND}/generate-testcases",
+                        json={
+                            "jira_story": jira,
+                            "structured_context": structured_context
+                        }
                     )
 
-                    st.dataframe(tc_df,  width='stretch')
+                    if resp.status_code == 200:
+                        st.session_state.testcases_by_jira[jira_key] = resp.json()["testcases"]
+                    else:
+                        st.error(f"Failed to generate test cases for {jira_key}")
 
-                    # CSV download
-                    csv = tc_df.to_csv(index=False).encode("utf-8")
-                    st.download_button(
-                        label="⬇️ Download Test Cases (CSV)",
-                        data=csv,
-                        file_name=f"{result['jira_key']}_testcases.csv",
-                        mime="text/csv",
-                    )
+            st.success("Test case generation completed")
+    # -------------------------------------------------
+    # Step 6: Review Generated Test Cases
+    # -------------------------------------------------
+    if st.session_state.testcases_by_jira:
+        st.header("6️⃣ Review Generated Test Cases")
 
+        jira_key_to_view = st.selectbox(
+            "Select Jira story to view test cases",
+            list(st.session_state.testcases_by_jira.keys())
+        )
+
+        testcases = st.session_state.testcases_by_jira.get(jira_key_to_view, [])
+
+        if testcases:
+            st.subheader(f"🧪 Test Cases for {jira_key_to_view}")
+
+            df = pd.DataFrame(testcases)
+
+            st.dataframe(
+                df,
+                use_container_width=True,
+                height=400
+            )
+        else:
+            st.info("No test cases available for this Jira story.")
+
+     

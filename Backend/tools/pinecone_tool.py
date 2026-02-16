@@ -8,17 +8,23 @@ from dotenv import load_dotenv
 import os 
 load_dotenv()
 
+<<<<<<< HEAD
 from openai import OpenAI
 # from config.settings import settings
 
+=======
+>>>>>>> feature
 embedding_model = OpenAIEmbeddings(
     model="text-embedding-3-large",
     dimensions=1024,
     openai_api_key=os.environ["OPENAI_API_KEY"],
 )
+<<<<<<< HEAD
 # -----------------------------
 # Initialize Pinecone client
 # ----------------------------
+=======
+>>>>>>> feature
 
 # -----------------------------
 # Pinecone Retrieval Tool

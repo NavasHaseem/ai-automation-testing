@@ -41,7 +41,7 @@ class QueryResponse(BaseModel):
     postgres_data: Optional[Dict[str, Any]] = None  # PostgreSQL context
     postgres_data: Optional[Dict[str, Any]] = None  # PostgreSQL context
 
-class JiraFetch(BaseModel):
+class JiraFetch(BaseModel): 
     Key: str = Field(..., example="AATA-12")
     Summary: str = Field(..., example="Flight booking should work")
     Status: Optional[str] = Field(None, example="In Progress")

@@ -45,7 +45,7 @@ A RAG (Retrieval-Augmented Generation) based document management and semantic se
 ## 📦 Installation
 
 ### Prerequisites
-- Python 3.12+
+- Python 3.10+
 - MongoDB instance
 - Pinecone account and API key
 - Jira account (optional, for integration features)
@@ -60,9 +60,24 @@ A RAG (Retrieval-Augmented Generation) based document management and semantic se
 
 2. **Install dependencies**
    ```bash
-   pip install -e .
-   # Or install individually:
-   pip install langgraph langchain-core langchain-openai python-dotenv streamlit fastapi uvicorn pymongo pinecone-client PyMuPDF python-docx pydantic requests
+    Create virtual environment 
+    python -m venv venv
+
+    ./.venv/Scripts/activate
+
+    upgrade pip for faster installation 
+    python -m pip install --upgrade pip setuptools wheel
+
+    install requirements.txt files
+    pip install -r requirements.txt
+
+    ## Setup (using uv)
+    install uv first add uv.exe path at system environment
+
+    uv venv
+    ./.venv/Scripts/activate  # or Windows equivalent
+    uv pip install -r requirements.txt
+
    ```
 
 3. **Configure environment variables**
@@ -90,8 +105,8 @@ A RAG (Retrieval-Augmented Generation) based document management and semantic se
    FRONTEND_ORIGIN=http://localhost:8501
    
    # Jira Configuration (Optional)
-   JIRA_BASE_URL=https://your-domain.atlassian.net
-   JIRA_EMAIL=your-email@example.com
+   JIRA_URL=https://your-domain.atlassian.net
+   JIRA_USERNAME=your-email@example.com
    JIRA_API_TOKEN=your_jira_api_token
    ```
 

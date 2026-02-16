@@ -512,10 +512,14 @@ async def generate_testcases(request: GenerateTestCasesRequest):
 def generate_context(request: GenerateContextRequest):
 
     jira_story = request.jira_story
+    print(type(jira_story))
+    print(jira_story.model_dump().keys())
 
     state = AgentState(jira_story=jira_story)
 
     final_state = build_context_graph().invoke(state)
+
+    print("type =========================================================================","\n",type(final_state["structured_context"]))
 
     return {
         "jira_key": jira_story.key,
