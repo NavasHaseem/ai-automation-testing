@@ -1,29 +1,18 @@
 import json
 from typing import Dict, Any, List
-<<<<<<< HEAD
-
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-
-=======
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
->>>>>>> feature
 from states.base_state import AgentState
 from states.test_case_state import TestCaseList
 from prompts.testcase_generate_prompt import TESTCASE_GENERATOR_PROMPT_V2
 
 
-<<<<<<< HEAD
-
-=======
 llm = ChatOpenAI(
         model="gpt-4o-mini", 
     ).with_structured_output(TestCaseList)
 
 print("llm working fine")  
     
->>>>>>> feature
 def testcase_generator_node(AgentState: AgentState) -> Dict[str, Any]:
     """
     Agent 3: Test Case Generator
@@ -50,15 +39,6 @@ def testcase_generator_node(AgentState: AgentState) -> Dict[str, Any]:
     )
 
     # 3️⃣ Build prompt (STRICT input binding)
-<<<<<<< HEAD
-# - Key: {jira_story_key}
-# - Labels: {jira_story_labels}
-# - Fix Version: {jira_story_fix_version}
-# - Priority: {jira_story_priority}
-
-# 3. Jira Story Description (for naming only, not inference)
-# {jira_story_description}
-=======
     # - Key: {jira_story_key}
     # - Labels: {jira_story_labels}
     # - Fix Version: {jira_story_fix_version}
@@ -66,7 +46,6 @@ def testcase_generator_node(AgentState: AgentState) -> Dict[str, Any]:
 
     # 3. Jira Story Description (for naming only, not inference)
     # {jira_story_description}
->>>>>>> feature
 
 
     prompt = TESTCASE_GENERATOR_PROMPT_V2.format(
@@ -77,14 +56,6 @@ def testcase_generator_node(AgentState: AgentState) -> Dict[str, Any]:
         structured_context = structured_context_json,
     )
 
-<<<<<<< HEAD
-    # 4️⃣ LLM with strict structured output
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0,
-    ).with_structured_output(TestCaseList)
-=======
->>>>>>> feature
 
     # 5️⃣ Invoke model
     results: TestCaseList = llm.invoke(
