@@ -61,7 +61,7 @@ def project_analysis_agent_node(state: RepoState) -> RepoState:
     ).data[0].embedding
 
     results = index.query(
-        namespace="github-repos-test",
+        namespace="github-repos-test-2",
         vector=embedding,
         top_k=5,
         include_metadata=True
@@ -143,7 +143,7 @@ def excel_iteration_agent_node(state: RepoState) -> RepoState:
         return state
 
     current_query = queries[idx]
-
+    test_data = current_query.get("Test Data", "")
 
     current_query_text = json.dumps(current_query, indent=2)
 
@@ -154,6 +154,12 @@ def excel_iteration_agent_node(state: RepoState) -> RepoState:
     Context from previous analysis:
     {analysis_prompt}
 
+    Test Data should be compulsiorly used dynamically in test:
+    {test_data}
+
+    The test data may represent name, password, product name, flight route, etc.
+    Use test data compulsory and correctly in feature file, step definitions, service layer and page object.
+
     It should have the Layered UI automation test architecture like the belwo example:
     Cucumber (BDD)
     ↓
@@ -163,7 +169,7 @@ def excel_iteration_agent_node(state: RepoState) -> RepoState:
     ↓
     Playwright Page Objects
     ↓
-    Test Context
+    Test Context from {test_data} should be used in all layers of the test.
 
     Now answer:
     {current_query_text}
@@ -199,35 +205,3 @@ def build_analysis_graph():
 
     return graph_1.compile()
 
-# def build_analysis_graph():
-
-#     graph = StateGraph(RepoState)
-
-#     graph.add_node("ProjectAnalysisAgent", project_analysis_agent_node)
-#     graph.add_node("ExcelIterationAgent", excel_iteration_agent_node)
-
-#     graph.set_entry_point("ProjectAnalysisAgent")
-
-#     graph.add_edge("ProjectAnalysisAgent", "ExcelIterationAgent")
-
-#     graph.add_conditional_edges(
-#         "ExcelIterationAgent",
-#         should_continue_excel
-#     )
-
-#     return graph.compile()
-
-
-
-
-
-# graph = build_analysis_graph()
-
-# result = graph.invoke({
-#     "pinecone_index": index,
-#     "openai_client": client,
-#     "llm": llm,
-#     "excel_path": r"C:\Users\abishek.h\Documents\Airline_Test_Cases_Story1_Story2.xlsx"
-# })
-
-# print(result["generated_responses"])

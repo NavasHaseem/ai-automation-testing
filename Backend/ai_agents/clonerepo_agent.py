@@ -29,6 +29,7 @@ def run_cmd(cmd, cwd=None):
         check=True
     )
     return result.stdout.strip()
+
 def embed_and_store_readme(
     content: str,
     metadata_line: str,
@@ -52,14 +53,15 @@ def embed_and_store_readme(
         namespace="github-repos-test-1"
     )
 
-def clone_repo(repo_url: str, base_dir: str = "Cloned_Repos") -> str:
+
+def clone_repo(repo_url: str, base_dir: str = "repos") -> str:
     os.makedirs(base_dir, exist_ok=True)
 
     repo_name = repo_url.rstrip("/").split("/")[-1].replace(".git", "")
     repo_path = os.path.join(base_dir, repo_name)
 
     if not os.path.exists(repo_path):
-        run_cmd(["git", "clone", "-b", "master", repo_url, repo_path])
+        run_cmd(["git", "clone", repo_url, repo_path])
 
     return repo_path
 
@@ -86,7 +88,7 @@ def checkout_branch(repo_path: str, branch: str):
     try:
         run_cmd(["git", "checkout", branch], cwd=repo_path)
     except subprocess.CalledProcessError:
-        run_cmd(["git", "checkout", "-b", branch, f"origin/{branch}"], cwd=repo_path)
+        run_cmd(["git", "checkout",  branch, f"origin/{branch}"], cwd=repo_path)
 
 
 def read_readme(repo_path: str) -> str | None:
@@ -95,12 +97,6 @@ def read_readme(repo_path: str) -> str | None:
         with open(readme_path, "r", encoding="utf-8") as f:
             return f.read()
     return None
-
-
-
-
-
-
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50):
@@ -143,7 +139,7 @@ def embed_and_upload(content: str, branch: str):
     if vectors:
         index.upsert(
             vectors=vectors,
-            namespace="github-repos-test-1"
+            namespace="github-repos-test-2"
         )
 
 
@@ -198,29 +194,3 @@ def build_embed_graph():
     graph_2.add_edge("RepoAgent", END)
 
     return graph_2.compile()
-
-
-# def build_graph():
-#     graph = StateGraph(RepoState)
-
-#     graph.add_node("RepoAgent", repo_agent_node)
-
-#     graph.set_entry_point("RepoAgent")
-#     graph.add_edge("RepoAgent", END)
-
-#     return graph.compile()
-
-
-
-# app = build_graph()
-
-# result = app.invoke({
-#    # "repo_url": repo_url #"https://github.com/Hemashree-s98/UI_Framework.git",
-#     "repo_url": "https://github.com/Hemashree-s98/UI_Framework.git"
-
-# })
-
-# print("\n FINAL STATUS")
-# print("Embedding:", result["embedding_status"])
-
-
