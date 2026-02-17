@@ -1,14 +1,25 @@
 
 # frontend/app.py
 import os
+import sys
 import streamlit as st
 import requests
 from dotenv import load_dotenv, find_dotenv
+from pinecone import Pinecone
+import openai
 import json
-import pandas as pd 
-from io import BytesIO
+import pandas as pd
+import tempfile
 import re
 import urllib
+from langchain_openai import ChatOpenAI
+module_dir = os.path.abspath('C:\\Users\\Navas.Hasheem\\OneDrive - Apexon\\vsprojects\\AI_E2E_POC\\ai-automation-testing\\Backend')
+# Add the directory to the system path
+sys.path.append(module_dir)
+from ai_agents.gitrepo_agent import build_analysis_graph
+from ai_agents.clonerepo_agent import build_embed_graph
+embed_graph = build_embed_graph()
+analysis_graph = build_analysis_graph()
 
 load_dotenv(find_dotenv())
 BACKEND = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
@@ -16,6 +27,11 @@ API_TOKEN = os.getenv("API_AUTH_TOKEN", "")  # optional
 
 st.set_page_config(page_title="AI Automation Testing", layout="wide")
 st.title("AI Automation Testing")
+openai_key = os.getenv("OPENAI_API_KEY")
+llm = ChatOpenAI(model="gpt-4o-mini")
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index(name=os.getenv("PINECONE_INDEX_NAME"))
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Health
 try:
@@ -25,7 +41,7 @@ except Exception as e:
     st.error(f"Backend unreachable: {e}")
 
 st.sidebar.header("Navigation")
-section = st.sidebar.radio("Choose Section", ["TestCase Generator"], index=0)
+section = st.sidebar.radio("Choose Section", ["TestCase Generator", "GitHub README Analysis"], index=1)
 
 # =====================================================
 # SECTION 1: DATA SOURCES
@@ -754,29 +770,93 @@ elif section == "TestCase Generator":
                 use_container_width=True,
                 height=400
             )
-
-
-            # 2. Function to convert DataFrame to Excel (using BytesIO)
-            # The function is cached to run efficiently on subsequent app reruns
-            @st.cache_data
-            def convert_df_to_excel(df):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=False, sheet_name='Sheet1')
-                    writer.close() # Close the writer to save the file to the BytesIO object
-                processed_data = output.getvalue()
-                return processed_data
-
-            excel_data = convert_df_to_excel(df)
-
-            st.download_button(
-                    label="📥 Download Excel file",
-                    data=excel_data,
-                    file_name='data_download.xlsx',
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    help="Click to download the current data as an XLSX file"
-                )
         else:
             st.info("No test cases available for this Jira story.")
+
+elif section == "GitHub README Analysis":
+    st.header("📂 GitHub README Analysis")
+    st.info("Enter a GitHub repository URL to analyze its README file and extract insights")
+    
+    tab1, tab2 = st.tabs(["GitHub README Analysis", "Excel Based Project Analysis"])
+
+# =============================
+# TAB 1 — GITHUB README ANALYSIS
+# =============================
+    with tab1:
+        st.header("📖 GitHub README Analysis")
+        
+        # GitHub URL Input
+        repo_url = st.text_input("🔗 Enter GitHub Repository URL", placeholder="https://github.com/user/repo")
+        
+        # Analyze Button
+        if st.button("▶️ Analyze", type="primary", use_container_width=True, key="analyze_readme"):
+            
+            if not repo_url:
+                st.warning("Please enter a GitHub repository URL")
+            else:
+                with st.spinner("Analyzing README from repository..."):
+                    try:
+                        result = embed_graph.invoke({
+                            "repo_url": repo_url
+                        })
+
+                        st.success("Analysis completed! ✅")
+
+                        if "readme_context" in result:
+                            with st.expander("📄 README Context", expanded=True):
+                                st.text(result["readme_context"])
+                        
+                        if "embedding_status" in result:
+                            st.info(result["embedding_status"])
+
+                    except Exception as e:
+                        st.error(f"Analysis Failed: {str(e)}")
+
+    # =============================
+    # TAB 2 — EXCEL BASED PROJECT ANALYSIS
+    # =============================
+    with tab2:
+        st.header("📊 Excel Based Project Analysis")
+
+        uploaded_excel = st.file_uploader(
+            "📄 Upload Excel File",
+            type=["xlsx"]
+        )
+
+        if st.button("Run Analysis", type="primary", use_container_width=True, key="analyze_excel"):
+
+            if not uploaded_excel:
+                st.warning("Please upload an Excel file first")
+            else:
+                with st.spinner("Running analysis workflow..."):
+
+                    try:
+
+                        with tempfile.NamedTemporaryFile(
+                            delete=False,
+                            suffix=".xlsx"
+                        ) as tmp_file:
+                            tmp_file.write(uploaded_excel.read())
+                            excel_path = tmp_file.name
+
+                        result = analysis_graph.invoke({
+                            "pinecone_index": index,
+                            "openai_client": client,
+                            "llm": llm,
+                            "excel_path": excel_path
+                        })
+
+                        st.success("Project analysis completed successfully ")
+
+                        if "generated_responses" in result and result["generated_responses"]:
+                            st.subheader("Generated Test Cases")
+                            for idx, response in enumerate(result["generated_responses"], 1):
+                                with st.expander(f"Test Case {idx}"):
+                                    st.code(response, language="java")
+
+                        os.remove(excel_path)
+
+                    except Exception as e:
+                        st.error(f"Analysis Failed: {str(e)}")
 
      
