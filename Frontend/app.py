@@ -5,7 +5,8 @@ import streamlit as st
 import requests
 from dotenv import load_dotenv, find_dotenv
 import json
-import pandas as pd
+import pandas as pd 
+from io import BytesIO
 import re
 import urllib
 
@@ -753,6 +754,28 @@ elif section == "TestCase Generator":
                 use_container_width=True,
                 height=400
             )
+
+
+            # 2. Function to convert DataFrame to Excel (using BytesIO)
+            # The function is cached to run efficiently on subsequent app reruns
+            @st.cache_data
+            def convert_df_to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Sheet1')
+                    writer.close() # Close the writer to save the file to the BytesIO object
+                processed_data = output.getvalue()
+                return processed_data
+
+            excel_data = convert_df_to_excel(df)
+
+            st.download_button(
+                    label="📥 Download Excel file",
+                    data=excel_data,
+                    file_name='data_download.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    help="Click to download the current data as an XLSX file"
+                )
         else:
             st.info("No test cases available for this Jira story.")
 
